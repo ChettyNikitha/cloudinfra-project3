@@ -1,4 +1,4 @@
-name: Deploy CDK Stack
+name: Deploy CDK Stack and Frontend
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      BUCKET_NAME: proj3-images-nchetty2025  
 
     steps:
       - name: Checkout code
@@ -38,3 +41,7 @@ jobs:
 
       - name: Deploy CDK Stack
         run: cdk deploy --require-approval never
+
+      - name: Deploy Frontend to S3
+        run: |
+          aws s3 sync ./webapp/ s3://$BUCKET_NAME --delete

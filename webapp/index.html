@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participation Record</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button, select {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 400px;
+            display: block;
+        }
+        label {
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify@4.3.0/dist/aws-amplify.min.js"></script>
+</head>
+<body>
+    <h1>Upload Image for Participation Record</h1>
+
+    <form id="participationForm">
+        <label for="name">Student Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="email">Student Email:</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="meeting_date">Meeting Date:</label>
+        <input type="date" id="meeting_date" name="meeting_date" required>
+
+        <label for="image_type">Image Type:</label>
+        <select id="image_type" name="image_type" required>
+            <option value="face">Face Image</option>
+            <option value="name">Name Image</option>
+        </select>
+
+        <label for="image_upload">Upload Image:</label>
+        <input type="file" id="image_upload" name="image_upload" accept="image/*" required>
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <div id="result"></div>
+
+    <noscript>
+        <p style="color: red;">JavaScript is required to use this page.</p>
+    </noscript>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AWS.config.region = 'us-east-1';
+            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: 'us-east-1:8c73473d-8021-4bf9-ab39-d44314e8b574',
+            });
+
+            const API_URL = "https://4xmxfijbfb.execute-api.us-east-1.amazonaws.com/dev/image_process";
+
+            document.getElementById('participationForm').addEventListener('submit', async function (event) {
+                event.preventDefault();
+
+                const name = document.getElementById('name').value;
+                const email = document.getElementById('email').value;
+                const meetingDate = document.getElementById('meeting_date').value;
+                const imageType = document.getElementById('image_type').value;
+                const imageUpload = document.getElementById('image_upload').files[0];
+
+                document.getElementById('result').innerHTML = "Processing...";
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: "generate_presigned_url",
+                            image_name: imageUpload.name,
+                            content_type: imageUpload.type
+                        }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.body);
+
+                    const presignedUrl = result.body.url;
+                    const imageKey = result.body.key;
+
+                    const s3Response = await fetch(presignedUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': imageUpload.type
+                        },
+                        body: imageUpload
+                    });
+
+                    if (!s3Response.ok) throw new Error("Image upload to S3 failed");
+
+                    const participationResponse = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: name,
+                            email: email,
+                            meeting_date: meetingDate,
+                            image_key: imageKey,
+                            image_type: imageType
+                        }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    const participationResult = await participationResponse.json();
+
+                    if (participationResponse.ok) {
+                        document.getElementById('result').innerHTML = `<p style="color:green;">Success: ${participationResult.body}</p>`;
+                    } else {
+                        throw new Error(participationResult.body);
+                    }
+                } catch (error) {
+                    document.getElementById('result').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

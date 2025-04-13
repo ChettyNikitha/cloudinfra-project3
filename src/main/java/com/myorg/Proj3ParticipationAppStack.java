@@ -27,6 +27,7 @@ public class Proj3ParticipationAppStack extends Stack {
 
         Bucket bucket = Bucket.Builder.create(this, "Proj3Images")
     .bucketName("proj3-images-nchetty2025") // Replace with something globally unique
+    .websiteIndexDocument("index.html") 
     .removalPolicy(RemovalPolicy.DESTROY)
     .autoDeleteObjects(true)
     .build();
